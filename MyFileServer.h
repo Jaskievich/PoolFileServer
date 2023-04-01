@@ -125,8 +125,6 @@ public:
 
 	int HandleCmd(TSocketData& buff_cmd, TCHAR_ADDRESS address)
 	{
-		int iRes = buff_cmd.ReadHeader();
-		if (iRes < 1) return iRes;
 		switch (buff_cmd.header.cmd)
 		{
 		case E_LIST_FILE:

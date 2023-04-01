@@ -111,8 +111,10 @@ struct TSocketData
 
 	~TSocketData()
 	{
-		if(ClientSocket)
+		if (ClientSocket) {
+			shutdown(ClientSocket, SD_BOTH);
 			closesocket(ClientSocket);
+		}
 	}
 
 	int ReadHeader()
@@ -194,7 +196,7 @@ private:
 		int iResult = 0;
 		while (size) {
 			iResult = send(ClientSocket, p_buff, size, 0);
-			if (iResult < 0) break;
+			if (iResult <= 0) break;
 			size -= iResult;
 			p_buff += iResult;
 		}
@@ -207,7 +209,7 @@ private:
 		int iResult = 0;
 		while (DEFAULT_BUFLEN < size) {
 			iResult = _SendAll( p_buff, DEFAULT_BUFLEN);
-			if (iResult < 0) break;
+			if (iResult <= 0) break;
 			p_buff += DEFAULT_BUFLEN;
 			size -= DEFAULT_BUFLEN;
 		}
@@ -490,19 +492,21 @@ VOID CALLBACK MyWorkCallbackHandleClientExt(PTP_CALLBACK_INSTANCE Instance, PVOI
 	TCHAR_ADDRESS ip_address_client;
 	TSocketData buff_cmd_in;
 	if (!serverTCPThreadpool->GetSocket_Address(buff_cmd_in.ClientSocket, ip_address_client)) return;
+//	_printf("open socket %i\n", buff_cmd_in.ClientSocket);
 	T objectClient;
-	int iResult = objectClient.HandleCmd(buff_cmd_in, ip_address_client);
-	if (iResult < 1) {
+	int iResult = 1;
+	while (iResult > 0) {
+		int iResult = buff_cmd_in.ReadHeader();
+		if (iResult > 0)
+			iResult = objectClient.HandleCmd(buff_cmd_in, ip_address_client);
+		else break;
+	}	
+	if (iResult < 0) {
 		_printf("recv or send headr failed with error: %d\n", WSAGetLastError());
-		return;
 	}
-	//iResult = objectClient.SendHandleCmd(buff_cmd_in);
-	//if (iResult == SOCKET_ERROR) {
-	//	_printf("send failed with error: %d\n", WSAGetLastError());
-	//	return;
-	//}
-	iResult = shutdown(buff_cmd_in.ClientSocket, SD_SEND);
+	iResult = shutdown(buff_cmd_in.ClientSocket, SD_BOTH);
 	closesocket(buff_cmd_in.ClientSocket);
+//	_printf("close socket %i\n", buff_cmd_in.ClientSocket);
 	buff_cmd_in.ClientSocket = 0;
 	if (iResult == SOCKET_ERROR) _printf("shutdown failed with error: %d\n", WSAGetLastError());
 	//	Sleep(1000);
